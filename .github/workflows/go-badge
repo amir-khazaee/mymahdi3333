@@ -1,0 +1,50 @@
+name: Update Go Report Card Badge (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: false
+        type: string
+        default: "main"
+    secrets:
+      GH_TOKEN:
+        required: true
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ inputs.branch }}
+
+      - name: Extract Repo Information
+        run: |
+          REPO_URL=$(git config --get remote.origin.url)
+          REPO_NAME=$(basename -s .git "$REPO_URL")
+          REPO_ORG=$(basename $(dirname "$REPO_URL"))
+          echo "REPO_ORG=$REPO_ORG" >> $GITHUB_ENV
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+
+      - name: Update README.md with Badge
+        run: |
+          BADGE="[![Go Report Card](https://goreportcard.com/badge/github.com/${{ env.REPO_ORG }}/${{ env.REPO_NAME }})](https://goreportcard.com/report/github.com/${{ env.REPO_ORG }}/${{ env.REPO_NAME }})"
+
+          # Remove existing badge if found
+          sed -i '/\[!\[Go Report Card\](https:\/\/goreportcard\.com\/badge\/github\.com\/[^)]*)](https:\/\/goreportcard\.com\/report\/github\.com\/[^)]*)/d' README.md
+
+          # Insert the new badge at the first line
+          echo -e "$BADGE\n$(cat README.md)" > README.md
+
+      - name: Commit and Push Changes to Main
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add README.md
+          git commit -m "Update Go Report Card Badge in README" || exit 0  # Avoid error if no changes
+          git push origin ${{ inputs.branch }}
